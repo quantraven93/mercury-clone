@@ -1,65 +1,153 @@
-import Image from "next/image";
+import Link from "next/link";
+import {
+  Scale,
+  Bell,
+  Calendar,
+  Search,
+  Zap,
+  Shield,
+} from "lucide-react";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white">
+      {/* Nav */}
+      <nav className="border-b border-white/10">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Scale className="w-8 h-8 text-indigo-400" />
+            <span className="text-xl font-bold">Mercury</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/login"
+              className="text-sm text-slate-300 hover:text-white transition-colors"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              Sign In
+            </Link>
+            <Link
+              href="/login"
+              className="text-sm bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg transition-colors"
             >
-              Learning
-            </a>{" "}
-            center.
+              Get Started
+            </Link>
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero */}
+      <section className="max-w-6xl mx-auto px-6 py-24 text-center">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-sm text-indigo-300 mb-6">
+          <Zap className="w-4 h-4" />
+          Free. Open Source. Auto-updating every 30 minutes.
+        </div>
+        <h1 className="text-5xl md:text-6xl font-bold leading-tight">
+          Track Your Court Cases
+          <br />
+          <span className="text-indigo-400">Across All Indian Courts</span>
+        </h1>
+        <p className="text-lg text-slate-400 mt-6 max-w-2xl mx-auto">
+          Monitor cases in the Supreme Court, High Courts, District Courts,
+          NCLT, and Consumer Forums. Get instant alerts when your case status
+          changes via Telegram and Email.
+        </p>
+        <div className="mt-10 flex items-center justify-center gap-4">
+          <Link
+            href="/login"
+            className="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl text-lg transition-colors"
+          >
+            Start Tracking
+          </Link>
+          <Link
+            href="/login"
+            className="px-8 py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium rounded-xl text-lg transition-colors"
+          >
+            Learn More
+          </Link>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="max-w-6xl mx-auto px-6 py-20">
+        <h2 className="text-3xl font-bold text-center mb-12">
+          Everything you need to track litigation
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <FeatureCard
+            icon={<Bell className="w-6 h-6" />}
+            title="Instant Alerts"
+            description="Get notified via Telegram and Email the moment your case status changes, a new order is uploaded, or a hearing date is updated."
+          />
+          <FeatureCard
+            icon={<Calendar className="w-6 h-6" />}
+            title="Calendar View"
+            description="See all your upcoming hearings in a clean calendar view. Never miss a court date again."
+          />
+          <FeatureCard
+            icon={<Search className="w-6 h-6" />}
+            title="Party Name Search"
+            description="Search across all Indian courts by party name. Find and track any case instantly."
+          />
+          <FeatureCard
+            icon={<Zap className="w-6 h-6" />}
+            title="Auto-Updates Every 30 Min"
+            description="Your cases are checked automatically every 30 minutes. No manual refreshing needed."
+          />
+          <FeatureCard
+            icon={<Scale className="w-6 h-6" />}
+            title="All Courts Covered"
+            description="Supreme Court, all High Courts, District Courts, NCLT, and Consumer Forums - all in one place."
+          />
+          <FeatureCard
+            icon={<Shield className="w-6 h-6" />}
+            title="Secure & Private"
+            description="Your data is protected with row-level security. Only you can see your tracked cases."
+          />
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="max-w-6xl mx-auto px-6 py-20 text-center">
+        <div className="bg-indigo-600/20 border border-indigo-500/30 rounded-2xl p-12">
+          <h2 className="text-3xl font-bold">Ready to track your cases?</h2>
+          <p className="text-slate-400 mt-3">
+            Sign up for free. No credit card required.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/login"
+            className="inline-block mt-6 px-8 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl text-lg transition-colors"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            Get Started Free
+          </Link>
         </div>
-      </main>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-white/10 py-8">
+        <div className="max-w-6xl mx-auto px-6 text-center text-sm text-slate-500">
+          <p>Mercury Case Tracker - Open Source Indian Court Case Monitoring</p>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+function FeatureCard({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+      <div className="p-3 bg-indigo-500/10 rounded-lg w-fit text-indigo-400 mb-4">
+        {icon}
+      </div>
+      <h3 className="text-lg font-semibold mb-2">{title}</h3>
+      <p className="text-sm text-slate-400">{description}</p>
     </div>
   );
 }
