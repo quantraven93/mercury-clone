@@ -2,7 +2,7 @@
  * Case Update Script - Runs via GitHub Actions every 30 minutes.
  *
  * 1. Fetches all active tracked cases from Supabase
- * 2. Queries court API for current status of each case
+ * 2. Queries court scrapers (SC / eCourts) for current status of each case
  * 3. Detects changes (status, hearing date, new orders, judge changes)
  * 4. Creates case_update records and sends notifications
  * 5. Updates the case record with latest data
@@ -10,14 +10,15 @@
 
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
+import { scProvider } from "../src/lib/courts/sc-scraper";
+import { ecourtsProvider } from "../src/lib/courts/ecourts-scraper";
+import type { CaseStatus, CaseIdentifier } from "../src/lib/courts/types";
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_KEY = process.env.SUPABASE_KEY!;
-const ECOURTS_API_KEY = process.env.ECOURTS_API_KEY!;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const GMAIL_USER = process.env.GMAIL_USER;
 const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
-const KLEOPATRA_BASE = "https://court-api.kleopatra.io";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -50,100 +51,74 @@ interface ChangeDetected {
   newValue: string;
 }
 
-// ---- Court API ----
-
-function mapCourtTypeToEndpoint(courtType: string): string {
-  const map: Record<string, string> = {
-    SC: "/api/v1/supreme-court",
-    HC: "/api/v1/high-court",
-    DC: "/api/v1/district-court",
-    NCLT: "/api/v1/nclt",
-    CF: "/api/v1/consumer-forum",
-  };
-  return map[courtType] || map.DC;
-}
+// ---- Court API via Scrapers ----
 
 async function fetchCaseFromAPI(
   tracked: TrackedCase
-): Promise<Record<string, unknown> | null> {
-  const endpoint = mapCourtTypeToEndpoint(tracked.court_type);
+): Promise<CaseStatus | null> {
+  const identifier: CaseIdentifier = {
+    courtType: (tracked.court_type as CaseIdentifier["courtType"]) || "DC",
+    caseType: tracked.case_type,
+    caseTypeCode: tracked.case_type_code || undefined,
+    caseNumber: tracked.case_number,
+    caseYear: tracked.case_year,
+    cnrNumber: tracked.cnr_number || undefined,
+    courtCode: tracked.court_code || undefined,
+    stateCode: tracked.state_code || undefined,
+    districtCode: tracked.district_code || undefined,
+  };
 
-  const params = new URLSearchParams();
-  if (tracked.cnr_number) {
-    params.set("cnr_number", tracked.cnr_number);
-  } else {
-    if (tracked.case_type_code) params.set("case_type", tracked.case_type_code);
-    else if (tracked.case_type) params.set("case_type", tracked.case_type);
-    params.set("case_number", tracked.case_number);
-    params.set("case_year", tracked.case_year);
-    if (tracked.state_code) params.set("state_code", tracked.state_code);
-    if (tracked.district_code)
-      params.set("district_code", tracked.district_code);
-    if (tracked.court_code) params.set("court_code", tracked.court_code);
+  if (tracked.court_type === "SC") {
+    return await scProvider.getCaseStatus(identifier);
   }
-
-  const url = `${KLEOPATRA_BASE}${endpoint}/case-status?${params.toString()}`;
-
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${ECOURTS_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    signal: AbortSignal.timeout(15000),
-  });
-
-  if (!response.ok) {
-    throw new Error(`API ${response.status}: ${response.statusText}`);
-  }
-
-  return response.json();
+  return await ecourtsProvider.getCaseStatus(identifier);
 }
 
 // ---- Change Detection ----
 
 function detectChanges(
   tracked: TrackedCase,
-  fresh: Record<string, any>
+  fresh: CaseStatus
 ): ChangeDetected[] {
   const changes: ChangeDetected[] = [];
 
-  const newStatus = fresh.status || fresh.case_status;
-  if (newStatus && newStatus !== tracked.current_status) {
+  // Status change
+  if (fresh.currentStatus && fresh.currentStatus !== tracked.current_status) {
     changes.push({
       field: "current_status",
       updateType: "status_change",
       oldValue: tracked.current_status,
-      newValue: newStatus,
+      newValue: fresh.currentStatus,
     });
   }
 
-  const newHearing = fresh.next_hearing_date || fresh.next_date;
-  if (newHearing && newHearing !== tracked.next_hearing_date) {
+  // Next hearing date change
+  if (fresh.nextHearingDate && fresh.nextHearingDate !== tracked.next_hearing_date) {
     changes.push({
       field: "next_hearing_date",
       updateType: "hearing_date_change",
       oldValue: tracked.next_hearing_date,
-      newValue: newHearing,
+      newValue: fresh.nextHearingDate,
     });
   }
 
-  const newOrderDate = fresh.last_order_date;
-  if (newOrderDate && newOrderDate !== tracked.last_order_date) {
+  // New order detected
+  if (fresh.lastOrderDate && fresh.lastOrderDate !== tracked.last_order_date) {
     changes.push({
       field: "last_order_date",
       updateType: "new_order",
       oldValue: tracked.last_order_date,
-      newValue: `New order on ${newOrderDate}: ${fresh.last_order || ""}`,
+      newValue: `New order on ${fresh.lastOrderDate}: ${fresh.lastOrderSummary || ""}`,
     });
   }
 
-  const newJudge = fresh.judge || fresh.bench;
-  if (newJudge && newJudge !== tracked.judges) {
+  // Judge/bench change
+  if (fresh.judges && fresh.judges !== tracked.judges) {
     changes.push({
       field: "judges",
       updateType: "judge_change",
       oldValue: tracked.judges,
-      newValue: newJudge,
+      newValue: fresh.judges,
     });
   }
 
@@ -325,10 +300,8 @@ async function main() {
   for (const tracked of cases) {
     try {
       const fresh = await fetchCaseFromAPI(tracked as TrackedCase);
-      if (!fresh || (fresh as Record<string, any>).error) {
-        console.warn(
-          `No data for case ${tracked.id}: ${(fresh as Record<string, any>)?.error || "null response"}`
-        );
+      if (!fresh) {
+        console.warn(`No data for case ${tracked.id}: null response`);
         errors++;
         continue;
       }
@@ -357,24 +330,20 @@ async function main() {
           );
         }
 
-        const f = fresh as Record<string, any>;
         await supabase
           .from("cases")
           .update({
-            current_status:
-              f.status || f.case_status || tracked.current_status,
+            current_status: fresh.currentStatus || tracked.current_status,
             next_hearing_date:
-              f.next_hearing_date ||
-              f.next_date ||
-              tracked.next_hearing_date,
+              fresh.nextHearingDate || tracked.next_hearing_date,
             last_order_date:
-              f.last_order_date || tracked.last_order_date,
+              fresh.lastOrderDate || tracked.last_order_date,
             last_order_summary:
-              f.last_order || tracked.last_order_summary,
-            petitioner: f.petitioner || tracked.petitioner,
-            respondent: f.respondent || tracked.respondent,
-            judges: f.judge || f.bench || tracked.judges,
-            raw_data: fresh,
+              fresh.lastOrderSummary || tracked.last_order_summary,
+            petitioner: fresh.petitioner || tracked.petitioner,
+            respondent: fresh.respondent || tracked.respondent,
+            judges: fresh.judges || tracked.judges,
+            raw_data: fresh.rawData,
             last_checked_at: new Date().toISOString(),
             last_changed_at: new Date().toISOString(),
           })
