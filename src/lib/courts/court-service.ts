@@ -1,9 +1,6 @@
 import { scProvider } from "./sc-scraper";
 import { ecourtsProvider } from "./ecourts-scraper";
-import {
-  searchJudgments,
-  searchByPartyName as ikSearchByPartyName,
-} from "./indian-kanoon-api";
+import { searchJudgments } from "./indian-kanoon-api";
 import type {
   CaseIdentifier,
   CaseStatus,
@@ -15,7 +12,7 @@ class CourtService {
   async getCaseStatus(
     identifier: CaseIdentifier
   ): Promise<CaseStatus | null> {
-    // For SC cases, use SC scraper
+    // For SC cases, use SC scraper (Azure Vision CAPTCHA)
     if (identifier.courtType === "SC") {
       try {
         const result = await scProvider.getCaseStatus(identifier);
@@ -58,15 +55,12 @@ class CourtService {
   /**
    * Search for cases by party name.
    *
-   * Strategy (in order):
-   * 1. Indian Kanoon (free website scrape) — most reliable, works for all courts
-   * 2. SC scraper (for SC-specific searches, if Tesseract is available)
-   * 3. eCourts (if CAPTCHA is solved — currently broken)
+   * Strategy — official sources first:
+   * 1. SC scraper (sci.gov.in) — for SC or unspecified court type
+   * 2. eCourts scraper (ecourts.gov.in) — for HC/DC/NCLT/CF
+   * 3. Indian Kanoon (indiankanoon.org) — judgment search fallback
    *
-   * Indian Kanoon is the PRIMARY source because:
-   * - No API key or CAPTCHA required
-   * - Covers SC, all HCs, District courts, Tribunals
-   * - Returns rich case data (title, parties, court, year)
+   * All CAPTCHA solving uses Azure GPT-4o Vision (~₹0.002 per solve).
    */
   async searchByPartyName(params: {
     partyName: string;
@@ -76,59 +70,64 @@ class CourtService {
   }): Promise<SearchResult[]> {
     const allResults: SearchResult[] = [];
 
-    // 1. Indian Kanoon — primary search (free, no CAPTCHA, fast)
-    try {
-      console.log(
-        `[CourtService] Searching Indian Kanoon for: "${params.partyName}" courtType=${params.courtType || "all"}`
-      );
-      const ikResults = await ikSearchByPartyName(
-        params.partyName,
-        params.courtType
-      );
-      if (ikResults.length > 0) {
+    // 1. SC scraper — official source (sci.gov.in)
+    if (!params.courtType || params.courtType === "SC") {
+      try {
         console.log(
-          `[CourtService] Indian Kanoon returned ${ikResults.length} results`
+          `[CourtService] Searching SC (sci.gov.in) for: "${params.partyName}"`
         );
-        allResults.push(...ikResults);
-        // Return immediately — don't wait for slow scrapers
-        return allResults;
+        const scResults = await scProvider.searchByPartyName(params);
+        if (scResults.length > 0) {
+          console.log(
+            `[CourtService] SC scraper returned ${scResults.length} results`
+          );
+          allResults.push(...scResults);
+        }
+      } catch (error) {
+        console.error("[CourtService] SC search failed:", error);
       }
-    } catch (error) {
-      console.error("[CourtService] Indian Kanoon search failed:", error);
     }
 
-    // 2. If Indian Kanoon returned nothing, try a broader search
+    // 2. eCourts scraper — official source (ecourts.gov.in)
+    if (
+      !params.courtType ||
+      params.courtType === "HC" ||
+      params.courtType === "DC" ||
+      params.courtType === "NCLT" ||
+      params.courtType === "CF"
+    ) {
+      try {
+        console.log(
+          `[CourtService] Searching eCourts (ecourts.gov.in) for: "${params.partyName}"`
+        );
+        const ecResults = await ecourtsProvider.searchByPartyName(params);
+        if (ecResults.length > 0) {
+          console.log(
+            `[CourtService] eCourts returned ${ecResults.length} results`
+          );
+          allResults.push(...ecResults);
+        }
+      } catch (error) {
+        console.error("[CourtService] eCourts search failed:", error);
+      }
+    }
+
+    // 3. Indian Kanoon fallback — if official sources returned nothing
     if (allResults.length === 0) {
       try {
         console.log(
-          "[CourtService] Trying broad Indian Kanoon judgment search..."
+          `[CourtService] Official sources returned nothing. Trying Indian Kanoon fallback...`
         );
-        const broadResults = await searchJudgments(params.partyName);
-        if (broadResults.length > 0) {
-          allResults.push(...broadResults);
-          return allResults;
+        const ikResults = await searchJudgments(params.partyName);
+        if (ikResults.length > 0) {
+          console.log(
+            `[CourtService] Indian Kanoon returned ${ikResults.length} results`
+          );
+          allResults.push(...ikResults);
         }
       } catch (error) {
-        console.error(
-          "[CourtService] Indian Kanoon broad search failed:",
-          error
-        );
+        console.error("[CourtService] Indian Kanoon fallback failed:", error);
       }
-    }
-
-    // 3. Last resort: try eCourts (may fail due to CAPTCHA)
-    // NOTE: SC scraper with Tesseract.js is skipped in search because
-    // it doesn't work in Vercel serverless (no native binary support).
-    try {
-      const ecResults = await ecourtsProvider.searchByPartyName(params);
-      if (ecResults.length > 0) {
-        console.log(
-          `[CourtService] eCourts returned ${ecResults.length} results`
-        );
-        allResults.push(...ecResults);
-      }
-    } catch (error) {
-      console.error("[CourtService] eCourts search failed:", error);
     }
 
     return allResults;
