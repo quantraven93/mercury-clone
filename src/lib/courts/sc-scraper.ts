@@ -676,9 +676,21 @@ function parseResultsHtml(html: string): CaseStatus | null {
   };
 }
 
+/**
+ * Parse the SC party name search results HTML table.
+ *
+ * SC returns a 7-column table:
+ *   [0] Serial Number
+ *   [1] Diary Number (e.g. "133/2026")
+ *   [2] Case Number  (e.g. "SLP(Crl) No. 002090 - 002091 / 2026 Registered on 03-02-2026") — may be empty
+ *   [3] Petitioner Name (in <td class="petitioners">)
+ *   [4] Respondent Name (in <td class="respondents">)
+ *   [5] Status ("PENDING", "DISPOSED", etc.)
+ *   [6] Action ("View" link)
+ */
 function parseSearchResultsHtml(
   html: string,
-  caseType: string
+  _caseType: string
 ): SearchResult[] {
   const results: SearchResult[] = [];
 
@@ -693,33 +705,60 @@ function parseSearchResultsHtml(
 
   for (const row of rows) {
     const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/gi) || [];
-    if (cells.length < 3) continue;
+    if (cells.length < 6) continue;
     const cellValues = cells.map((c) => stripTags(c));
+
+    // Skip header rows
     if (
+      cellValues[0].toLowerCase().includes("serial") ||
       cellValues[0].toLowerCase().includes("sl") ||
-      cellValues[0].toLowerCase().includes("diary") ||
       cellValues[0].toLowerCase().includes("#")
     )
       continue;
 
-    const caseNoMatch = cellValues[1]?.match(/(\d+)\s*\/\s*(\d{4})/);
-    const titleCell = cellValues.find(
-      (c) => c.includes(" vs ") || c.includes(" v. ") || c.includes(" Vs ")
+    // Column mapping for SC party name search
+    const diaryNo = cellValues[1] || "";        // "133/2026"
+    const caseNoCell = cellValues[2] || "";      // "SLP(Crl) No. 002090 / 2026 Registered on ..."
+    const petitioner = cellValues[3] || "";
+    const respondent = cellValues[4] || "";
+    const status = cellValues[5] || "";
+
+    // Parse diary number for year
+    const diaryMatch = diaryNo.match(/(\d+)\s*\/\s*(\d{4})/);
+
+    // Try to parse case type and number from Case Number cell
+    // e.g. "SLP(Crl) No. 002090 - 002091 / 2026 Registered on 03-02-2026"
+    const caseDetailMatch = caseNoCell.match(
+      /([A-Za-z().]+(?:\s*[A-Za-z().]+)*)\s*No\.\s*(\d+)(?:\s*-\s*\d+)?\s*\/\s*(\d{4})/
     );
-    const parties = titleCell?.split(/\s+(?:vs|v\.)\s+/i) || [];
+
+    const parsedCaseType = caseDetailMatch ? caseDetailMatch[1].trim() : "";
+    const caseNumber = caseDetailMatch
+      ? caseDetailMatch[2]
+      : diaryMatch
+      ? diaryMatch[1]
+      : diaryNo;
+    const caseYear = caseDetailMatch
+      ? caseDetailMatch[3]
+      : diaryMatch
+      ? diaryMatch[2]
+      : "";
+
+    const caseTitle =
+      petitioner && respondent
+        ? `${petitioner} vs ${respondent}`
+        : petitioner || respondent || caseNoCell || diaryNo;
 
     results.push({
-      caseTitle: titleCell || cellValues[2] || cellValues[1] || "",
-      caseNumber: caseNoMatch ? caseNoMatch[1] : cellValues[1] || "",
-      caseYear: caseNoMatch ? caseNoMatch[2] : "",
-      caseType: SC_CASE_TYPE_MAP[caseType] || caseType,
+      caseTitle,
+      caseNumber,
+      caseYear,
+      caseType: parsedCaseType || "Diary",
       courtType: "SC" as CourtType,
       courtName: "Supreme Court of India",
-      status: cellValues.find((c) =>
-        /pending|disposed|dismissed|allowed/i.test(c)
-      ),
-      petitioner: parties[0]?.trim(),
-      respondent: parties[1]?.trim(),
+      status: status || undefined,
+      petitioner: petitioner || undefined,
+      respondent: respondent || undefined,
     });
   }
 
