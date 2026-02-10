@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardShell } from "@/components/DashboardShell";
 import { cn, COURT_TYPES, COURT_TYPE_COLORS } from "@/lib/utils";
-import { Search, PlusCircle, Users, FileText } from "lucide-react";
+import { Search, PlusCircle } from "lucide-react";
 
 interface SearchResult {
   caseTitle: string;
@@ -24,7 +24,6 @@ interface SearchResult {
 export default function SearchPage() {
   const [query, setQuery] = useState("");
   const [courtType, setCourtType] = useState("");
-  const [searchType, setSearchType] = useState<"party" | "judgment">("party");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -37,7 +36,7 @@ export default function SearchPage() {
     setLoading(true);
     setSearched(true);
 
-    const params = new URLSearchParams({ q: query, type: searchType });
+    const params = new URLSearchParams({ q: query });
     if (courtType) params.set("court_type", courtType);
 
     try {
@@ -84,37 +83,11 @@ export default function SearchPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Search</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Search across Indian courts by party name or judgment
+            Search across official Indian courts by party name
           </p>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          {/* Search type toggle */}
-          <div className="flex gap-2 mb-4">
-            <button
-              onClick={() => setSearchType("party")}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                searchType === "party"
-                  ? "bg-indigo-100 text-indigo-700"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              Party Name
-            </button>
-            <button
-              onClick={() => setSearchType("judgment")}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                searchType === "judgment"
-                  ? "bg-indigo-100 text-indigo-700"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-              Judgment
-            </button>
-          </div>
-
           <form onSubmit={handleSearch} className="flex gap-3">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -122,28 +95,22 @@ export default function SearchPage() {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder={
-                  searchType === "party"
-                    ? "Enter party name (min 3 characters)..."
-                    : "Search judgments..."
-                }
+                placeholder="Enter party name (min 3 characters)..."
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 bg-white placeholder:text-gray-400"
               />
             </div>
-            {searchType === "party" && (
-              <select
-                value={courtType}
-                onChange={(e) => setCourtType(e.target.value)}
-                className="px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white appearance-auto focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="">All Courts</option>
-                {COURT_TYPES.map((ct) => (
-                  <option key={ct.value} value={ct.value}>
-                    {ct.label}
-                  </option>
-                ))}
-              </select>
-            )}
+            <select
+              value={courtType}
+              onChange={(e) => setCourtType(e.target.value)}
+              className="px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white appearance-auto focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="">All Courts</option>
+              {COURT_TYPES.map((ct) => (
+                <option key={ct.value} value={ct.value}>
+                  {ct.label}
+                </option>
+              ))}
+            </select>
             <button
               type="submit"
               disabled={loading || query.length < 3}

@@ -1,6 +1,5 @@
 import { scProvider } from "./sc-scraper";
 import { ecourtsProvider } from "./ecourts-scraper";
-import { searchJudgments } from "./indian-kanoon-api";
 import type {
   CaseIdentifier,
   CaseStatus,
@@ -53,13 +52,12 @@ class CourtService {
   }
 
   /**
-   * Search for cases by party name.
+   * Search for cases by party name — OFFICIAL SOURCES ONLY.
    *
-   * Strategy — official sources first:
    * 1. SC scraper (sci.gov.in) — for SC or unspecified court type
    * 2. eCourts scraper (ecourts.gov.in) — for HC/DC/NCLT/CF
-   * 3. Indian Kanoon (indiankanoon.org) — judgment search fallback
    *
+   * No third-party sources like Indian Kanoon.
    * All CAPTCHA solving uses Azure GPT-4o Vision (~₹0.002 per solve).
    */
   async searchByPartyName(params: {
@@ -82,6 +80,8 @@ class CourtService {
             `[CourtService] SC scraper returned ${scResults.length} results`
           );
           allResults.push(...scResults);
+        } else {
+          console.log("[CourtService] SC scraper returned 0 results");
         }
       } catch (error) {
         console.error("[CourtService] SC search failed:", error);
@@ -106,38 +106,18 @@ class CourtService {
             `[CourtService] eCourts returned ${ecResults.length} results`
           );
           allResults.push(...ecResults);
+        } else {
+          console.log("[CourtService] eCourts returned 0 results");
         }
       } catch (error) {
         console.error("[CourtService] eCourts search failed:", error);
       }
     }
 
-    // 3. Indian Kanoon fallback — if official sources returned nothing
-    if (allResults.length === 0) {
-      try {
-        console.log(
-          `[CourtService] Official sources returned nothing. Trying Indian Kanoon fallback...`
-        );
-        const ikResults = await searchJudgments(params.partyName);
-        if (ikResults.length > 0) {
-          console.log(
-            `[CourtService] Indian Kanoon returned ${ikResults.length} results`
-          );
-          allResults.push(...ikResults);
-        }
-      } catch (error) {
-        console.error("[CourtService] Indian Kanoon fallback failed:", error);
-      }
-    }
-
+    console.log(
+      `[CourtService] Total results from official sources: ${allResults.length}`
+    );
     return allResults;
-  }
-
-  async searchJudgments(
-    query: string,
-    page = 0
-  ): Promise<SearchResult[]> {
-    return searchJudgments(query, page);
   }
 }
 

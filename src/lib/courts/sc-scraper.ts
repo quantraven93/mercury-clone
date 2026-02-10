@@ -29,6 +29,7 @@ import type {
 
 const SC_BASE_URL = "https://www.sci.gov.in";
 const SC_CASE_STATUS_PAGE = `${SC_BASE_URL}/case-status-case-no/`;
+const SC_PARTY_SEARCH_PAGE = `${SC_BASE_URL}/case-status-party-name/`;
 const SC_AJAX_URL = `${SC_BASE_URL}/wp-admin/admin-ajax.php`;
 const MAX_CAPTCHA_RETRIES = 3;
 
@@ -354,9 +355,10 @@ interface SCSession {
 
 /**
  * Fetches the SC case status page and extracts session data + CAPTCHA answer.
+ * @param pageUrl - which SC page to get the session from (case number vs party name page)
  */
-async function getSession(): Promise<SCSession> {
-  const response = await fetch(SC_CASE_STATUS_PAGE, {
+async function getSession(pageUrl: string = SC_CASE_STATUS_PAGE): Promise<SCSession> {
+  const response = await fetch(pageUrl, {
     headers: {
       "User-Agent": UA,
       Accept:
@@ -422,7 +424,7 @@ async function getSession(): Promise<SCSession> {
     headers: {
       Cookie: cookies,
       "User-Agent": UA,
-      Referer: SC_CASE_STATUS_PAGE,
+      Referer: pageUrl,
     },
     signal: AbortSignal.timeout(10000),
   });
@@ -823,16 +825,27 @@ async function fetchCaseStatusWithRetry(
   return null;
 }
 
-async function searchByPartyNameSC(
-  partyName: string
+/**
+ * Performs a single party name search for a specific year and status.
+ * Returns results or empty array. Retries on CAPTCHA failure.
+ */
+async function searchPartyNameForYearStatus(
+  partyName: string,
+  year: string,
+  partyStatus: string
 ): Promise<SearchResult[]> {
   for (let attempt = 1; attempt <= MAX_CAPTCHA_RETRIES; attempt++) {
     try {
-      const session = await getSession();
+      // IMPORTANT: Use the party name search page (not case number page)
+      // because scid and token are page-specific
+      const session = await getSession(SC_PARTY_SEARCH_PAGE);
 
       const params = new URLSearchParams({
         action: "get_case_status_party_name",
         party_name: partyName,
+        party_type: "any",
+        year: year,
+        party_status: partyStatus,
         siwp_captcha_value: session.captchaAnswer,
         scid: session.scid,
         [session.tokenName]: session.tokenValue,
@@ -840,13 +853,15 @@ async function searchByPartyNameSC(
         language: "en",
       });
 
+      console.log(`[SC Search] year=${year} status=${partyStatus} attempt=${attempt} captcha=${session.captchaAnswer}`);
+
       const response = await fetch(`${SC_AJAX_URL}?${params.toString()}`, {
         headers: {
           "User-Agent": UA,
           Accept: "application/json, text/javascript, */*; q=0.01",
           "Accept-Language": "en-US,en;q=0.5",
           "X-Requested-With": "XMLHttpRequest",
-          Referer: SC_CASE_STATUS_PAGE,
+          Referer: SC_PARTY_SEARCH_PAGE,
           Cookie: session.cookies,
         },
         signal: AbortSignal.timeout(15000),
@@ -869,22 +884,80 @@ async function searchByPartyNameSC(
           errorMsg.toLowerCase().includes("captcha") &&
           attempt < MAX_CAPTCHA_RETRIES
         ) {
+          console.warn(`[SC Search] CAPTCHA rejected, retrying...`);
           continue;
         }
+        console.log(`[SC Search] No success: "${errorMsg}"`);
         return [];
       }
 
+      // Try multiple possible response keys
       const resultsHtml =
-        data.data?.resultsHtml || data.data?.html || "";
-      if (!resultsHtml) return [];
+        data.data?.resultsHtml ||
+        data.data?.html ||
+        data.data?.result ||
+        (typeof data.data === "string" ? data.data : "");
 
+      if (!resultsHtml) {
+        console.log(`[SC Search] Empty response for year=${year} status=${partyStatus}`);
+        return [];
+      }
+
+      console.log(`[SC Search] Got ${resultsHtml.length} chars for year=${year} status=${partyStatus}`);
       return parseSearchResultsHtml(resultsHtml, "");
     } catch (error) {
+      console.error(`[SC Search] Attempt ${attempt} error:`, error);
       if (attempt < MAX_CAPTCHA_RETRIES) continue;
-      throw error;
+      // Don't throw on final attempt — just return empty so other year/status combos still run
+      return [];
     }
   }
   return [];
+}
+
+/**
+ * Search SC by party name across recent years and both pending/disposed statuses.
+ * The SC website requires year and party_status params.
+ * We search the last 3 years (current + 2 prior) for both Pending and Disposed.
+ */
+async function searchByPartyNameSC(
+  partyName: string,
+  year?: string
+): Promise<SearchResult[]> {
+  const currentYear = new Date().getFullYear();
+  // If caller provides a year, search only that year; otherwise search last 3 years
+  const yearsToSearch = year
+    ? [year]
+    : [String(currentYear), String(currentYear - 1), String(currentYear - 2)];
+  const statusesToSearch = ["P", "D"]; // Pending and Disposed
+
+  const allResults: SearchResult[] = [];
+  const seen = new Set<string>();
+
+  for (const yr of yearsToSearch) {
+    for (const status of statusesToSearch) {
+      try {
+        const results = await searchPartyNameForYearStatus(partyName, yr, status);
+        for (const r of results) {
+          // Deduplicate by case number + year
+          const key = `${r.caseNumber}-${r.caseYear}-${r.caseType}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            allResults.push(r);
+          }
+        }
+        console.log(`[SC Search] year=${yr} status=${status}: ${results.length} results (total: ${allResults.length})`);
+      } catch (error) {
+        console.error(`[SC Search] Failed for year=${yr} status=${status}:`, error);
+      }
+      // Small delay between requests to be respectful
+      if (allResults.length > 50) break; // Stop if we already have plenty
+    }
+    if (allResults.length > 50) break;
+  }
+
+  console.log(`[SC Search] Total results for "${partyName}": ${allResults.length}`);
+  return allResults;
 }
 
 // ---- Provider Export ----
@@ -894,7 +967,7 @@ export const scProvider: CourtApiProvider = {
 
   async searchByPartyName(params) {
     try {
-      return await searchByPartyNameSC(params.partyName);
+      return await searchByPartyNameSC(params.partyName, params.year);
     } catch (error) {
       console.error("[SC Scraper] searchByPartyName error:", error);
       return [];

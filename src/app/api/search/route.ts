@@ -26,17 +26,13 @@ export async function GET(request: Request) {
   }
 
   try {
-    let results;
-    if (searchType === "judgment") {
-      results = await courtService.searchJudgments(query);
-    } else {
-      results = await courtService.searchByPartyName({
-        partyName: query,
-        courtType: courtType || undefined,
-        stateCode: stateCode || undefined,
-        year: year || undefined,
-      });
-    }
+    // Only search official court sources (sci.gov.in, ecourts.gov.in)
+    const results = await courtService.searchByPartyName({
+      partyName: query,
+      courtType: courtType || undefined,
+      stateCode: stateCode || undefined,
+      year: year || undefined,
+    });
     return NextResponse.json({ results });
   } catch (error) {
     console.error("Search error:", error);
