@@ -144,6 +144,86 @@ export async function summarizeOrder(
 }
 
 /**
+ * Generate an AI summary of a case based on its data.
+ *
+ * @param caseData - The case details object
+ * @returns A clear, concise case summary
+ */
+export async function summarizeCase(caseData: {
+  caseTitle: string;
+  courtType: string;
+  courtName?: string;
+  currentStatus?: string;
+  petitioner?: string;
+  respondent?: string;
+  filingDate?: string;
+  nextHearingDate?: string;
+  lastOrderDate?: string;
+  lastOrderSummary?: string;
+  judges?: string;
+  updates?: Array<{
+    type: string;
+    oldValue?: string;
+    newValue?: string;
+    date: string;
+  }>;
+}): Promise<string> {
+  try {
+    const caseContext = [
+      `Case: ${caseData.caseTitle}`,
+      `Court: ${caseData.courtName || caseData.courtType}`,
+      `Status: ${caseData.currentStatus || "Unknown"}`,
+      caseData.petitioner ? `Petitioner: ${caseData.petitioner}` : null,
+      caseData.respondent ? `Respondent: ${caseData.respondent}` : null,
+      caseData.filingDate ? `Filed: ${caseData.filingDate}` : null,
+      caseData.nextHearingDate
+        ? `Next Hearing: ${caseData.nextHearingDate}`
+        : null,
+      caseData.lastOrderDate
+        ? `Last Order: ${caseData.lastOrderDate}`
+        : null,
+      caseData.lastOrderSummary
+        ? `Last Order Summary: ${caseData.lastOrderSummary}`
+        : null,
+      caseData.judges ? `Judges: ${caseData.judges}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const updatesContext =
+      caseData.updates && caseData.updates.length > 0
+        ? "\n\nRecent Updates:\n" +
+          caseData.updates
+            .slice(0, 10)
+            .map(
+              (u) =>
+                `- ${u.date}: ${u.type}${u.newValue ? ` -> ${u.newValue}` : ""}`
+            )
+            .join("\n")
+        : "";
+
+    const messages: ChatMessage[] = [
+      {
+        role: "system",
+        content:
+          "You are an Indian legal assistant. Provide a clear, concise case summary in 3-5 sentences. " +
+          "Include: (1) What the case is about, (2) Current status and position, (3) Next steps or what to expect. " +
+          "Use plain language a non-lawyer can understand. Be factual, don't speculate.",
+      },
+      {
+        role: "user",
+        content: `Summarize this Indian court case:\n\n${caseContext}${updatesContext}`,
+      },
+    ];
+
+    return await azureChat(messages, { maxTokens: 300, temperature: 0.3 });
+  } catch (error) {
+    console.error("[Azure AI] Case summary failed:", error);
+    return "Unable to generate summary. Please try again later.";
+  }
+}
+
+/**
  * Check if Azure OpenAI is configured and available.
  */
 export function isAzureConfigured(): boolean {

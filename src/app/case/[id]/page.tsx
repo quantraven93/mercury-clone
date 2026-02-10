@@ -14,6 +14,7 @@ import {
   Clock,
   Save,
   Trash2,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -64,6 +65,8 @@ export default function CaseDetailPage({
   const [notes, setNotes] = useState("");
   const [tagInput, setTagInput] = useState("");
   const [saving, setSaving] = useState(false);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [summarizing, setSummarizing] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -116,6 +119,20 @@ export default function CaseDetailPage({
       return;
     await fetch(`/api/cases/${id}`, { method: "DELETE" });
     router.push("/dashboard");
+  }
+
+  async function generateSummary() {
+    setSummarizing(true);
+    try {
+      const res = await fetch(`/api/cases/${id}/summarize`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      setAiSummary(data.summary || "Failed to generate summary.");
+    } catch {
+      setAiSummary("Failed to generate summary. Please try again.");
+    }
+    setSummarizing(false);
   }
 
   if (loading) {
@@ -190,6 +207,38 @@ export default function CaseDetailPage({
           >
             <Trash2 className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* AI Summary */}
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-200 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-indigo-900 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-indigo-500" />
+              AI Case Summary
+            </h2>
+            <button
+              onClick={generateSummary}
+              disabled={summarizing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 disabled:bg-indigo-400 transition-colors"
+            >
+              <Sparkles className="w-3 h-3" />
+              {summarizing
+                ? "Generating..."
+                : aiSummary
+                ? "Regenerate"
+                : "Generate Summary"}
+            </button>
+          </div>
+          {aiSummary ? (
+            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
+              {aiSummary}
+            </p>
+          ) : (
+            <p className="text-sm text-indigo-400">
+              Click &quot;Generate Summary&quot; to get an AI-powered overview of
+              this case.
+            </p>
+          )}
         </div>
 
         {/* Info Grid */}
