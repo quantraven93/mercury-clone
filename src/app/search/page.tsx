@@ -154,18 +154,15 @@ export default function SearchPage() {
                       )}
                     </div>
                     <p className="text-sm font-medium text-gray-900 truncate">
-                      {r.caseTitle || `${r.caseNumber}/${r.caseYear}`}
+                      {r.petitioner && r.respondent
+                        ? `${r.petitioner} vs ${r.respondent}`
+                        : r.caseTitle || `${r.caseNumber}/${r.caseYear}`}
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5">
                       {r.courtName}
                       {r.caseNumber &&
                         ` | ${r.caseType} ${r.caseNumber}/${r.caseYear}`}
                     </p>
-                    {r.petitioner && (
-                      <p className="text-xs text-gray-400 mt-1">
-                        {r.petitioner} vs {r.respondent}
-                      </p>
-                    )}
                   </div>
                   <button
                     onClick={() => trackCase(r)}
