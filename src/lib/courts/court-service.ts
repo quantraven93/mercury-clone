@@ -76,7 +76,7 @@ class CourtService {
   }): Promise<SearchResult[]> {
     const allResults: SearchResult[] = [];
 
-    // 1. Indian Kanoon — primary search (free, no CAPTCHA)
+    // 1. Indian Kanoon — primary search (free, no CAPTCHA, fast)
     try {
       console.log(
         `[CourtService] Searching Indian Kanoon for: "${params.partyName}" courtType=${params.courtType || "all"}`
@@ -90,66 +90,45 @@ class CourtService {
           `[CourtService] Indian Kanoon returned ${ikResults.length} results`
         );
         allResults.push(...ikResults);
+        // Return immediately — don't wait for slow scrapers
+        return allResults;
       }
     } catch (error) {
       console.error("[CourtService] Indian Kanoon search failed:", error);
     }
 
-    // 2. SC scraper for SC-specific searches (supplement IK results)
-    if (params.courtType === "SC" || !params.courtType) {
-      try {
-        const scResults = await scProvider.searchByPartyName(params);
-        if (scResults.length > 0) {
-          console.log(
-            `[CourtService] SC scraper returned ${scResults.length} results`
-          );
-          // Merge, avoiding duplicates by title similarity
-          for (const sr of scResults) {
-            const isDuplicate = allResults.some(
-              (r) =>
-                r.caseTitle &&
-                sr.caseTitle &&
-                r.caseTitle
-                  .toLowerCase()
-                  .includes(sr.caseTitle.substring(0, 30).toLowerCase())
-            );
-            if (!isDuplicate) allResults.push(sr);
-          }
-        }
-      } catch (error) {
-        console.error("[CourtService] SC search failed:", error);
-      }
-    }
-
-    // 3. eCourts (may fail due to CAPTCHA, but try anyway)
-    if (allResults.length < 5) {
-      try {
-        const ecResults = await ecourtsProvider.searchByPartyName(params);
-        if (ecResults.length > 0) {
-          console.log(
-            `[CourtService] eCourts returned ${ecResults.length} results`
-          );
-          allResults.push(...ecResults);
-        }
-      } catch (error) {
-        console.error("[CourtService] eCourts search failed:", error);
-      }
-    }
-
-    // If still nothing, try a broader Indian Kanoon search
+    // 2. If Indian Kanoon returned nothing, try a broader search
     if (allResults.length === 0) {
       try {
         console.log(
           "[CourtService] Trying broad Indian Kanoon judgment search..."
         );
         const broadResults = await searchJudgments(params.partyName);
-        allResults.push(...broadResults);
+        if (broadResults.length > 0) {
+          allResults.push(...broadResults);
+          return allResults;
+        }
       } catch (error) {
         console.error(
           "[CourtService] Indian Kanoon broad search failed:",
           error
         );
       }
+    }
+
+    // 3. Last resort: try eCourts (may fail due to CAPTCHA)
+    // NOTE: SC scraper with Tesseract.js is skipped in search because
+    // it doesn't work in Vercel serverless (no native binary support).
+    try {
+      const ecResults = await ecourtsProvider.searchByPartyName(params);
+      if (ecResults.length > 0) {
+        console.log(
+          `[CourtService] eCourts returned ${ecResults.length} results`
+        );
+        allResults.push(...ecResults);
+      }
+    } catch (error) {
+      console.error("[CourtService] eCourts search failed:", error);
     }
 
     return allResults;
