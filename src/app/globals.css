@@ -3,6 +3,7 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -12,20 +13,39 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Force light mode — the entire UI is light-mode only */
+html {
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: #ffffff;
+  color: #171717;
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Utility for hiding scrollbar but keeping scroll */
+/* ---- Form inputs in dashboard: ensure text & placeholder are clearly visible ---- */
+/* Scoped to <main> so the dark-themed login page is unaffected */
+main input,
+main select,
+main textarea {
+  color: #111827 !important; /* gray-900 */
+  background-color: #ffffff !important;
+}
+
+main input::placeholder,
+main textarea::placeholder {
+  color: #9ca3af !important; /* gray-400 — visible but not dominant */
+  opacity: 1 !important;
+}
+
+/* Select elements: ensure dropdown options are readable */
+main select option {
+  color: #111827;
+  background-color: #ffffff;
+}
+
+/* ---- Utility for hiding scrollbar but keeping scroll ---- */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }

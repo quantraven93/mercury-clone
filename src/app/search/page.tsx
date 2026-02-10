@@ -127,14 +127,14 @@ export default function SearchPage() {
                     ? "Enter party name (min 3 characters)..."
                     : "Search judgments..."
                 }
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 bg-white placeholder:text-gray-400"
               />
             </div>
             {searchType === "party" && (
               <select
                 value={courtType}
                 onChange={(e) => setCourtType(e.target.value)}
-                className="px-4 py-3 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="px-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white appearance-auto focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="">All Courts</option>
                 {COURT_TYPES.map((ct) => (

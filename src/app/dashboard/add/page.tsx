@@ -101,7 +101,7 @@ export default function AddCasePage() {
                   onChange={(e) => setCnrNumber(e.target.value.toUpperCase())}
                   placeholder="e.g., DLCT010012345"
                   required
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 bg-white placeholder:text-gray-400"
                 />
                 <p className="text-xs text-gray-400 mt-1">
                   16-character unique case number from eCourts
@@ -116,7 +116,7 @@ export default function AddCasePage() {
                   <select
                     value={courtType}
                     onChange={(e) => setCourtType(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 bg-white appearance-auto"
                   >
                     {COURT_TYPES.map((ct) => (
                       <option key={ct.value} value={ct.value}>
@@ -134,7 +134,7 @@ export default function AddCasePage() {
                     <select
                       value={stateCode}
                       onChange={(e) => setStateCode(e.target.value)}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 bg-white appearance-auto"
                     >
                       <option value="">Select State</option>
                       {INDIAN_STATES.map((s) => (
@@ -156,7 +156,7 @@ export default function AddCasePage() {
                     onChange={(e) => setCaseType(e.target.value)}
                     placeholder="e.g., Civil Appeal, Writ Petition, SLP"
                     required
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 bg-white placeholder:text-gray-400"
                   />
                 </div>
 
@@ -171,7 +171,7 @@ export default function AddCasePage() {
                       onChange={(e) => setCaseNumber(e.target.value)}
                       placeholder="e.g., 1234"
                       required
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 bg-white placeholder:text-gray-400"
                     />
                   </div>
                   <div>
@@ -184,7 +184,7 @@ export default function AddCasePage() {
                       onChange={(e) => setCaseYear(e.target.value)}
                       placeholder="e.g., 2024"
                       required
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 bg-white placeholder:text-gray-400"
                     />
                   </div>
                 </div>

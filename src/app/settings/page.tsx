@@ -137,7 +137,7 @@ export default function SettingsPage() {
                   setPrefs({ ...prefs, telegram_chat_id: e.target.value })
                 }
                 placeholder="e.g., 123456789"
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 bg-white placeholder:text-gray-400"
               />
               <div className="mt-2 p-3 bg-gray-50 rounded-lg">
                 <p className="text-xs text-gray-600 font-medium mb-1">
@@ -184,7 +184,7 @@ export default function SettingsPage() {
                 alert_before_hearing_hours: Number(e.target.value),
               })
             }
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white"
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 bg-white appearance-auto"
           >
             <option value={1}>1 hour before</option>
             <option value={6}>6 hours before</option>
